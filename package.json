@@ -1,0 +1,139 @@
+{
+  "name": "commit-helper",
+  "displayName": "Commit Helper",
+  "description": "根据待提交的变更自动生成 Conventional Commits 规范的提交信息，支持 OpenAI 兼容 / Ollama / Azure / Anthropic / 自定义模式与提示词自定义",
+  "version": "0.1.0",
+  "publisher": "commit-helper",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "SCM Providers",
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "extensionDependencies": [
+    "vscode.git"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "commitHelper.generate",
+        "title": "生成 Commit Message",
+        "category": "Commit Helper",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "commitHelper.openSettings",
+        "title": "打开设置面板",
+        "category": "Commit Helper",
+        "icon": "$(gear)"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "commitHelper.openSettings",
+          "when": "true"
+        }
+      ],
+      "scm/title": [
+        {
+          "command": "commitHelper.generate",
+          "group": "navigation",
+          "when": "scmProvider == git && gitOpenRepositoryCount != 0"
+        }
+      ],
+      "scm/repository": [
+        {
+          "command": "commitHelper.generate",
+          "group": "2_main@9",
+          "when": "scmProvider == git"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Commit Helper",
+      "properties": {
+        "commitHelper.providers": {
+          "type": "array",
+          "default": [],
+          "scope": "machine",
+          "markdownDescription": "API 服务提供商列表。建议在设置面板（命令 `Commit Helper: 打开设置面板`）中管理。每个 Provider 包含 id/mode/baseUrl 等；API Key 存储在系统密钥链中。",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "description": "Provider 唯一 ID（小写）" },
+              "mode": {
+                "type": "string",
+                "enum": ["openai", "openai-responses", "ollama", "anthropic", "custom"],
+                "description": "API 模式"
+              },
+              "baseUrl": { "type": "string", "description": "API 地址" },
+              "timeout": { "type": "number", "description": "超时（秒）" },
+              "customRequestTemplate": { "type": "string", "description": "custom 模式请求体模板" },
+              "headers": { "type": "object", "additionalProperties": { "type": "string" }, "description": "自定义请求头" }
+            }
+          }
+        },
+        "commitHelper.models": {
+          "type": "array",
+          "default": [],
+          "scope": "machine",
+          "markdownDescription": "模型列表（绑定到 Provider）。建议在设置面板中管理。",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "description": "Model ID" },
+              "providerId": { "type": "string", "description": "所属 Provider ID" },
+              "displayName": { "type": "string", "description": "显示名" }
+            }
+          }
+        },
+        "commitHelper.commitModel": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "markdownDescription": "生成 commit message 使用的模型，格式 `providerId::modelId`。"
+        },
+        "commitHelper.prompt.template": {
+          "type": "string",
+          "default": "请根据以下 Git 变更生成一条符合 Conventional Commits 规范的 commit message。\n\n变更文件：\n{{files}}\n\nDiff 摘要：\n{{diff}}\n\n要求：\n1. 首行为 type(scope): subject，subject 不超过 50 字符\n2. type 从 feat/fix/perf/style/tools/refactor/docs/test/build/ci/chore/merge/revert/hotfix/release/deps/config/init/add/update/remove 中选择\n3. 有多处逻辑变更时用正文分条描述\n4. 使用 {{language}} 输出\n5. 只输出 commit message 本身，不要任何额外说明",
+          "scope": "machine",
+          "markdownDescription": "提示词模板，支持变量：`{{diff}}`（变更内容）、`{{files}}`（文件列表）、`{{branch}}`（当前分支）、`{{type}}`（变更类型统计）、`{{language}}`（目标语言）。"
+        },
+        "commitHelper.prompt.language": {
+          "type": "string",
+          "enum": [
+            "zh",
+            "en"
+          ],
+          "default": "zh",
+          "scope": "machine",
+          "markdownDescription": "生成消息的语言。"
+        },
+        "commitHelper.maxDiffChars": {
+          "type": "number",
+          "default": 4000,
+          "minimum": 500,
+          "scope": "machine",
+          "markdownDescription": "送入模型的 diff 内容上限（字符数），超长部分会先按文件截断。"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.4.0"
+  }
+}

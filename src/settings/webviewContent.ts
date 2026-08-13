@@ -131,7 +131,7 @@ export function getWebviewContent(): string {
   }
   .key-badge.set { color: #4ec9b0; border-color: #4ec9b0; }
   .key-badge.empty { color: #8c8c8c; }
-  .actions-cell { white-space: nowrap; }
+  .actions-cell { white-space: nowrap; width: 1%; }
   .actions-cell button { margin-right: 4px; }
 
   .status {

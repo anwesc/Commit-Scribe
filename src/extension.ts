@@ -35,17 +35,17 @@ export function activate(context: vscode.ExtensionContext): void {
 function createStatusBarItem(settingsService: SettingsService): vscode.Disposable {
   const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
   item.command = COMMANDS.openSettings;
-  item.text = '$(sparkle) Commit Helper';
+  item.text = '$(wand) Commit Helper';
   item.tooltip = 'Commit Helper：点击打开设置';
   item.show();
 
   const update = async (): Promise<void> => {
     const active = await settingsService.resolveActiveModel();
     if (active) {
-      item.text = `$(sparkle) ${active.model.id}`;
+      item.text = `$(wand) ${active.model.id}`;
       item.tooltip = `Commit Helper · ${active.provider.id}/${active.model.id} · 点击打开设置`;
     } else {
-      item.text = '$(sparkle) Commit Helper';
+      item.text = '$(wand) Commit Helper';
       item.tooltip = 'Commit Helper：未配置模型，点击打开设置';
     }
   };

@@ -1,7 +1,7 @@
 {
   "name": "commit-helper",
   "displayName": "Commit Helper",
-  "description": "根据待提交的变更自动生成 Conventional Commits 规范的提交信息，支持 OpenAI 兼容 / Ollama / Azure / Anthropic / 自定义模式与提示词自定义",
+  "description": "根据待提交的变更自动生成 Conventional Commits 规范的提交信息，支持 OpenAI 兼容 / OpenAI Responses / Ollama / Anthropic / 自定义模式与提示词自定义",
   "version": "0.1.0",
   "publisher": "commit-helper",
   "license": "MIT",
@@ -23,13 +23,13 @@
     "commands": [
       {
         "command": "commitHelper.generate",
-        "title": "生成 Commit Message",
+        "title": "AI 生成 Commit Message",
         "category": "Commit Helper",
-        "icon": "$(sparkle)"
+        "icon": "$(wand)"
       },
       {
         "command": "commitHelper.openSettings",
-        "title": "打开设置面板",
+        "title": "Commit Helper 设置",
         "category": "Commit Helper",
         "icon": "$(gear)"
       }
@@ -51,6 +51,7 @@
       "scm/repository": [
         {
           "command": "commitHelper.generate",
+          "title": "$(wand) AI 生成 Commit Message",
           "group": "2_main@9",
           "when": "scmProvider == git"
         }

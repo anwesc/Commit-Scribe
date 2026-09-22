@@ -1,4 +1,4 @@
-# Commit Helper
+# Commit Scribe
 
 根据 Git 待提交的变更自动生成 Conventional Commits 规范的 commit message 的 VS Code 扩展。
 
@@ -13,7 +13,7 @@
 
 ## 使用
 
-1. 在设置面板（命令 `Commit Helper: 打开设置面板`）添加 Provider（API Mode / URL / Key）
+1. 在设置面板（命令 `Commit Scribe: 打开设置面板`）添加 Provider（API Mode / URL / Key）
 2. 添加 Model（选择 Provider 后自动拉取模型列表）
 3. 选择"Commit 生成模型"
 4. 在 SCM 视图点击 ✨ 按钮生成 commit message

@@ -1,6 +1,6 @@
 {
-  "name": "ai-commit-helper",
-  "displayName": "Commit Helper",
+  "name": "commit-scribe",
+  "displayName": "Commit Scribe",
   "description": "根据待提交的变更自动生成 Conventional Commits 规范的提交信息，支持 OpenAI 兼容 / OpenAI Responses / Ollama / Anthropic / 自定义模式与提示词自定义",
   "version": "0.2.0",
   "publisher": "anwesc",
@@ -8,7 +8,7 @@
   "icon": "assets/icon.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/anwesc/CommitHelper.git"
+    "url": "https://github.com/anwesc/Commit-Scribe.git"
   },
   "engines": {
     "vscode": "^1.85.0"
@@ -29,13 +29,13 @@
       {
         "command": "commitHelper.generate",
         "title": "AI 生成 Commit Message",
-        "category": "Commit Helper",
+        "category": "Commit Scribe",
         "icon": "$(wand)"
       },
       {
         "command": "commitHelper.openSettings",
-        "title": "Commit Helper 设置",
-        "category": "Commit Helper",
+        "title": "Commit Scribe 设置",
+        "category": "Commit Scribe",
         "icon": "$(gear)"
       }
     ],
@@ -63,13 +63,13 @@
       ]
     },
     "configuration": {
-      "title": "Commit Helper",
+      "title": "Commit Scribe",
       "properties": {
         "commitHelper.providers": {
           "type": "array",
           "default": [],
           "scope": "machine",
-          "markdownDescription": "API 服务提供商列表。建议在设置面板（命令 `Commit Helper: 打开设置面板`）中管理。每个 Provider 包含 id/mode/baseUrl 等；API Key 存储在系统密钥链中。",
+          "markdownDescription": "API 服务提供商列表。建议在设置面板（命令 `Commit Scribe: 打开设置面板`）中管理。每个 Provider 包含 id/mode/baseUrl 等；API Key 存储在系统密钥链中。",
           "items": {
             "type": "object",
             "properties": {

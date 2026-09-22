@@ -16,7 +16,7 @@ export function getWebviewContent(): string {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Content-Security-Policy"
       content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
-<title>Commit Helper 设置</title>
+<title>Commit Scribe 设置</title>
 <style>
   body {
     font-family: var(--vscode-font-family, sans-serif);
@@ -268,7 +268,7 @@ export function getWebviewContent(): string {
 </style>
 </head>
 <body>
-  <h2 style="margin:4px 0 14px;">⚙️ Commit Helper 设置</h2>
+  <h2 style="margin:4px 0 14px;">⚙️ Commit Scribe 设置</h2>
 
   <!-- ============ Provider Management ============ -->
   <section id="providerSection">

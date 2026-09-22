@@ -28,25 +28,25 @@ export function activate(context: vscode.ExtensionContext): void {
   const statusBarItem = createStatusBarItem(settingsService);
   context.subscriptions.push(statusBarItem);
 
-  vscode.window.setStatusBarMessage('Commit Helper 已激活', 3000);
+  vscode.window.setStatusBarMessage('Commit Scribe 已激活', 3000);
 }
 
 /** 创建状态栏项：显示当前 commit 模型，点击打开设置面板 */
 function createStatusBarItem(settingsService: SettingsService): vscode.Disposable {
   const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
   item.command = COMMANDS.openSettings;
-  item.text = '$(wand) Commit Helper';
-  item.tooltip = 'Commit Helper：点击打开设置';
+  item.text = '$(wand) Commit Scribe';
+  item.tooltip = 'Commit Scribe：点击打开设置';
   item.show();
 
   const update = async (): Promise<void> => {
     const active = await settingsService.resolveActiveModel();
     if (active) {
       item.text = `$(wand) ${active.model.id}`;
-      item.tooltip = `Commit Helper · ${active.provider.id}/${active.model.id} · 点击打开设置`;
+      item.tooltip = `Commit Scribe · ${active.provider.id}/${active.model.id} · 点击打开设置`;
     } else {
-      item.text = '$(wand) Commit Helper';
-      item.tooltip = 'Commit Helper：未配置模型，点击打开设置';
+      item.text = '$(wand) Commit Scribe';
+      item.tooltip = 'Commit Scribe：未配置模型，点击打开设置';
     }
   };
   void update();
@@ -75,7 +75,7 @@ async function generateCommitMessage(settingsService: SettingsService, commandAr
     const active = await settingsService.resolveActiveModel();
     if (!active) {
       const action = await vscode.window.showErrorMessage(
-        'Commit Helper 尚未配置 Provider 和 Model。请先添加。',
+        'Commit Scribe 尚未配置 Provider 和 Model。请先添加。',
         '打开设置面板'
       );
       if (action === '打开设置面板') {
@@ -100,7 +100,7 @@ async function generateCommitMessage(settingsService: SettingsService, commandAr
     const message = await vscode.window.withProgress(
       {
         location: vscode.ProgressLocation.Notification,
-        title: `Commit Helper：正在使用 ${active.provider.id}/${active.model.id} 为 ${summary.files.length} 个变更文件生成提交信息…`,
+        title: `Commit Scribe：正在使用 ${active.provider.id}/${active.model.id} 为 ${summary.files.length} 个变更文件生成提交信息…`,
         cancellable: false,
       },
       () => generateMessage(runtime, active.model.id, prompt)
@@ -120,7 +120,7 @@ async function generateCommitMessage(settingsService: SettingsService, commandAr
         : err instanceof Error
           ? err.message
           : String(err);
-    const action = await vscode.window.showErrorMessage(`Commit Helper 生成失败：${message}`, '打开设置面板');
+    const action = await vscode.window.showErrorMessage(`Commit Scribe 生成失败：${message}`, '打开设置面板');
     if (action === '打开设置面板') {
       openSettingsPanel(settingsService);
     }

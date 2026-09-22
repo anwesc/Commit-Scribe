@@ -130,4 +130,4 @@ export const PROMPT_VARIABLES: { name: string; description: string }[] = [
 ];
 
 /** Webview 面板标题 */
-export const SETTINGS_PANEL_TITLE = 'Commit Helper 设置';
+export const SETTINGS_PANEL_TITLE = 'Commit Scribe 设置';

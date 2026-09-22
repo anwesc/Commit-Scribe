@@ -131,6 +131,12 @@ export function getWebviewContent(): string {
   }
   .key-badge.set { color: #4ec9b0; border-color: #4ec9b0; }
   .key-badge.empty { color: #8c8c8c; }
+  .key-badge.warn { color: #d7ba7d; border-color: #d7ba7d; }
+  .model-issue {
+    color: #d7ba7d;
+    font-size: 11px;
+    margin-top: 3px;
+  }
   .actions-cell { white-space: nowrap; width: 1%; }
   .actions-cell button { margin-right: 4px; }
 
@@ -281,6 +287,7 @@ export function getWebviewContent(): string {
             <th>Base URL</th>
             <th>API Key</th>
             <th>API Mode</th>
+            <th>Thinking</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -407,6 +414,42 @@ export function getWebviewContent(): string {
 
   var MODE_API_KEYS = ['openai', 'openai-responses', 'anthropic']; // 需要 API Key 的模式
 
+  // 与 constants.ts 的 DEFAULT_MAX_TOKENS 保持一致（anthropic 模式 max_tokens 必填）
+  var DEFAULT_MAX_TOKENS = 4096;
+
+  // 与 constants.ts 的 DEFAULT_BASE_URLS 保持一致
+  var MODE_DEFAULT_BASE_URLS = {
+    'openai': 'https://api.openai.com/v1',
+    'openai-responses': 'https://api.openai.com/v1',
+    'ollama': 'http://localhost:11434',
+    'anthropic': 'https://api.anthropic.com/v1',
+    'custom': ''
+  };
+
+  function isDefaultBaseUrl(url) {
+    var v = (url || '').trim();
+    if (!v) { return true; }
+    return Object.keys(MODE_DEFAULT_BASE_URLS).some(function (k) {
+      return MODE_DEFAULT_BASE_URLS[k] === v;
+    });
+  }
+
+  /**
+   * API Mode ↔ Base URL 联动：
+   * 切换模式时，若 Base URL 为空或仍是某个模式的内置默认地址，则自动替换为新模式的默认地址；
+   * 用户手填过的自定义地址不会被覆盖。
+   */
+  function bindModeBaseUrlSync(tr) {
+    var modeSel = tr.querySelector('[data-field="apiMode"]');
+    var urlInput = tr.querySelector('[data-field="baseUrl"]');
+    if (!modeSel || !urlInput) { return; }
+    modeSel.addEventListener('change', function () {
+      if (isDefaultBaseUrl(urlInput.value)) {
+        urlInput.value = MODE_DEFAULT_BASE_URLS[modeSel.value] || '';
+      }
+    });
+  }
+
   function showStatus(el, text, cls) {
     el.textContent = text;
     el.className = 'status ' + (cls || '');
@@ -435,6 +478,24 @@ export function getWebviewContent(): string {
     }).join('');
   }
 
+  /**
+   * 思考模式为三态：空值 = 不发送字段（交给服务端默认行为）。
+   * 因为有些模型默认开启思考，只有显式 disabled 才能关闭；
+   * 而默认关闭的服务端收到 disabled 反而可能报错，故保留「不指定」这一档。
+   */
+  var THINKING_LABELS = {
+    '': '不指定',
+    'enabled': '启用',
+    'disabled': '关闭'
+  };
+
+  function thinkingOptionsHtml(selected) {
+    var cur = selected || '';
+    return Object.keys(THINKING_LABELS).map(function (v) {
+      return '<option value="' + v + '"' + (cur === v ? ' selected' : '') + '>' + esc(THINKING_LABELS[v]) + '</option>';
+    }).join('');
+  }
+
   function buildProviderRow(p) {
     var tr = document.createElement('tr');
     var hasKey = !!state.providerApiKeys[p.id];
@@ -447,6 +508,7 @@ export function getWebviewContent(): string {
       '<td><input type="text" class="provider-input" data-field="baseUrl" value="' + esc(p.baseUrl) + '" placeholder="Base URL"></td>' +
       '<td><input type="password" class="provider-input" data-field="apiKey" placeholder="' + esc(keyPlaceholder) + '"></td>' +
       '<td><select class="provider-input" data-field="apiMode">' + modeOptionsHtml(p.mode) + '</select></td>' +
+      '<td><select class="provider-input" data-field="thinking">' + thinkingOptionsHtml(p.thinking) + '</select></td>' +
       '<td class="actions-cell">' +
         '<button class="secondary small" data-advanced="1" title="高级选项（超时/Headers/Custom）">⚙</button>' +
         '<button class="save-provider-btn small">保存</button>' +
@@ -460,8 +522,9 @@ export function getWebviewContent(): string {
     tr.className = 'advanced-row hidden';
     tr.setAttribute('data-advanced-row', p.id);
     tr.innerHTML =
-      '<td colspan="5"><div class="advanced-fields">' +
+      '<td colspan="6"><div class="advanced-fields">' +
         '<div class="af-field" style="max-width:150px;"><label>超时（秒）</label><input type="number" class="provider-input" data-field="timeout" min="5" value="' + (p.timeout || 30) + '"></div>' +
+        '<div class="af-field" style="max-width:170px;"><label>最大输出 tokens</label><input type="number" class="provider-input" data-field="maxTokens" min="1" value="' + (p.maxTokens || '') + '" placeholder="' + DEFAULT_MAX_TOKENS + '"></div>' +
         '<div class="af-field"><label>自定义 Headers（JSON）</label><input type="text" class="provider-input" data-field="headers" value="' + (p.headers ? esc(JSON.stringify(p.headers)) : '') + '" placeholder=\\'{"X-Api-Key": "xxx"}\\'></div>' +
         '<div class="af-field" style="flex:2;"><label>Custom 请求体模板</label><input type="text" class="provider-input" data-field="customRequestTemplate" value="' + esc(p.customRequestTemplate || '') + '" placeholder=\\'{"model": "{{model}}", "messages": {{messages}}}\\'></div>' +
         (state.providerApiKeys[p.id] ? '<div class="af-field"><label>&nbsp;</label><button class="danger small" data-clear-key="' + esc(p.id) + '">清除已存 Key</button></div>' : '') +
@@ -478,6 +541,9 @@ export function getWebviewContent(): string {
       body.appendChild(buildProviderRow(p));
       body.appendChild(buildProviderAdvancedRow(p));
     });
+
+    // API Mode → Base URL 联动（默认地址跟随模式，自定义地址保留）
+    body.querySelectorAll('tr[data-provider]').forEach(bindModeBaseUrlSync);
 
     // 高级选项展开/收起
     body.querySelectorAll('[data-advanced]').forEach(function (btn) {
@@ -496,10 +562,13 @@ export function getWebviewContent(): string {
         var tr = btn.closest('tr');
         var id = tr.getAttribute('data-provider');
         var adv = tr.nextElementSibling;
-        var data = collectRowData(tr);
+        var main = collectRowData(tr);
+        var data = main;
         data.id = id;
         if (adv && adv.getAttribute('data-advanced-row')) {
-          data = Object.assign(data, collectRowData(adv));
+          // 高级行在前、主行在后：若两处出现同名字段，以主行为准
+          data = Object.assign(collectRowData(adv), main);
+          data.id = id;
         }
         var apiKey = data.apiKey || undefined;
         vscode.postMessage({ type: 'saveProvider', provider: data, apiKey: apiKey });
@@ -512,12 +581,12 @@ export function getWebviewContent(): string {
         var id = btn.getAttribute('data-clear-key');
         var tr = btn.closest('tr.advanced-row');
         var main = tr.previousElementSibling;
-        var data = collectRowData(main);
+        var mainData = collectRowData(main);
+        var data = Object.assign(collectRowData(tr), mainData);
         data.id = id;
-        var advData = collectRowData(tr);
         vscode.postMessage({
           type: 'saveProvider',
-          provider: Object.assign(data, advData),
+          provider: data,
           apiKeyCleared: true
         });
       });
@@ -548,17 +617,26 @@ export function getWebviewContent(): string {
       var out = {};
       tr.querySelectorAll('[data-field]').forEach(function (input) {
         var field = input.getAttribute('data-field');
+        // 行内 select 的 data-field 是 apiMode，而 ProviderDraft 的字段名是 mode
+        var key = field === 'apiMode' ? 'mode' : field;
         var val = input.value.trim();
         if (field === 'timeout') {
-          out[field] = parseInt(val, 10) || 30;
+          out[key] = parseInt(val, 10) || 30;
+        } else if (field === 'maxTokens') {
+          // 留空表示不指定，交由扩展侧使用默认值
+          var mt = parseInt(val, 10);
+          out[key] = isNaN(mt) || mt <= 0 ? undefined : mt;
+        } else if (field === 'thinking') {
+          // 空值表示「不指定」，不发送 thinking/reasoning_effort 字段
+          out[key] = val || undefined;
         } else if (field === 'headers') {
           try {
-            out[field] = val ? JSON.parse(val) : undefined;
+            out[key] = val ? JSON.parse(val) : undefined;
           } catch (e) {
-            out[field] = undefined;
+            out[key] = undefined;
           }
         } else {
-          out[field] = val;
+          out[key] = val;
         }
       });
       return out;
@@ -575,11 +653,13 @@ export function getWebviewContent(): string {
       '<td><input type="text" class="provider-input" data-field="baseUrl" placeholder="https://api.deepseek.com/v1"></td>' +
       '<td><input type="password" class="provider-input" data-field="apiKey" placeholder="API Key"></td>' +
       '<td><select class="provider-input" data-field="apiMode">' + modeOptionsHtml('openai') + '</select></td>' +
+      '<td><select class="provider-input" data-field="thinking">' + thinkingOptionsHtml('') + '</select></td>' +
       '<td class="actions-cell">' +
         '<button class="save-provider-btn small">保存</button>' +
         '<button class="cancel-provider-btn secondary small">取消</button>' +
       '</td>';
     body.appendChild(tr);
+    bindModeBaseUrlSync(tr);
     tr.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
     tr.querySelector('.save-provider-btn').addEventListener('click', function () {
@@ -593,6 +673,7 @@ export function getWebviewContent(): string {
           id: data.id,
           baseUrl: data.baseUrl,
           mode: data.apiMode,
+          thinking: data.thinking || undefined,
           timeout: 30
         },
         apiKey: data.apiKey || undefined
@@ -604,6 +685,24 @@ export function getWebviewContent(): string {
     });
   }
 
+  /** 检查 Model 与其 Provider 当前配置是否仍然自洽；返回提示文案（无问题返回空串） */
+  function describeModelIssue(m) {
+    var p = null;
+    for (var i = 0; i < state.providers.length; i++) {
+      if (state.providers[i].id === m.providerId) { p = state.providers[i]; break; }
+    }
+    if (!p) {
+      return '所属 Provider 已不存在，请删除或改绑';
+    }
+    if (p.mode === 'custom' && !m.id) {
+      return 'custom 模式建议填写 Model ID';
+    }
+    if (p.mode !== 'custom' && !String(m.id || '').trim()) {
+      return 'Model ID 为空，无法用于生成';
+    }
+    return '';
+  }
+
   function renderModels() {
     var body = els.modelTableBody;
     body.innerHTML = '';
@@ -612,8 +711,11 @@ export function getWebviewContent(): string {
     state.models.forEach(function (m) {
       var tr = document.createElement('tr');
       var isCommit = state.commitModel === m.providerId + '::' + m.id;
+      // Provider 被改模式/改地址后可能出现「不可用」的遗留模型，提示但不自动删除
+      var issue = describeModelIssue(m);
       tr.innerHTML =
-        '<td><strong>' + esc(m.id) + '</strong>' + (isCommit ? ' <span class="key-badge set">使用中</span>' : '') + '</td>' +
+        '<td><strong>' + esc(m.id) + '</strong>' + (isCommit ? ' <span class="key-badge set">使用中</span>' : '') +
+          (issue ? '<div class="model-issue">' + esc(issue) + '</div>' : '') + '</td>' +
         '<td>' + esc(m.providerId) + '</td>' +
         '<td>' + esc(m.displayName || '') + '</td>' +
         '<td class="actions-cell">' +
@@ -781,8 +883,11 @@ export function getWebviewContent(): string {
     });
 
     $('mfProvider').addEventListener('change', function () {
+      // 切换 Provider 后，上一个 Provider 的 Model ID 已不适用：清空并重新拉取
+      mfModelId.value = '';
       mfDropdownContent.innerHTML = '';
       mfDropdownHeader.textContent = 'Select Model';
+      hideDropdown();
       $('mfFetch').click();
     });
 

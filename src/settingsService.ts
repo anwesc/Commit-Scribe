@@ -3,7 +3,10 @@ import {
   CONFIG_SECTION,
   KEYS,
   SECRET_API_KEY_PREFIX,
+  API_MODES,
+  THINKING_MODES,
   ApiMode,
+  ThinkingMode,
   ProviderConfig,
   ModelConfig,
   DEFAULT_BASE_URLS,
@@ -21,6 +24,8 @@ export interface ProviderDraft {
   mode: ApiMode;
   baseUrl: string;
   timeout?: number;
+  maxTokens?: number;
+  thinking?: ThinkingMode;
   customRequestTemplate?: string;
   headers?: Record<string, string>;
 }
@@ -69,7 +74,9 @@ export class SettingsService implements vscode.Disposable {
   // ---------- Providers ----------
 
   get providers(): ProviderConfig[] {
-    return this.get<ProviderConfig[]>(KEYS.providers) ?? [];
+    const raw = this.get<ProviderConfig[]>(KEYS.providers) ?? [];
+    // 兜底：历史数据可能缺失/写错 mode 字段，统一规范为合法 ApiMode
+    return raw.map(p => ({ ...p, mode: normalizeApiMode(p.mode) }));
   }
 
   findProvider(id: string): ProviderConfig | undefined {
@@ -86,13 +93,18 @@ export class SettingsService implements vscode.Disposable {
       return 'Provider ID 只能包含小写字母、数字、下划线和中划线';
     }
 
+    // 前端可能未带上 mode（历史字段名不一致），按 id 回退到已存配置，再回退默认 openai
+    const mode = normalizeApiMode(draft.mode ?? this.findProvider(id)?.mode);
+
     const providers = this.providers;
     const index = providers.findIndex(p => p.id === id);
     const newProvider: ProviderConfig = {
       id,
-      mode: draft.mode,
-      baseUrl: draft.baseUrl?.trim() || DEFAULT_BASE_URLS[draft.mode] || '',
+      mode,
+      baseUrl: draft.baseUrl?.trim() || DEFAULT_BASE_URLS[mode] || '',
       timeout: draft.timeout,
+      maxTokens: draft.maxTokens,
+      thinking: normalizeThinking(draft.thinking),
       customRequestTemplate: draft.customRequestTemplate,
       headers: draft.headers,
     };
@@ -252,6 +264,8 @@ export class SettingsService implements vscode.Disposable {
       mode: p.mode,
       baseUrl: p.baseUrl,
       timeout: p.timeout,
+      maxTokens: p.maxTokens,
+      thinking: p.thinking,
       customRequestTemplate: p.customRequestTemplate,
       headers: p.headers,
     }));
@@ -279,4 +293,14 @@ function parseModelKeySafe(key: string): { providerId: string; modelId: string }
     return undefined;
   }
   return { providerId: key.slice(0, idx), modelId: key.slice(idx + 2) };
+}
+
+/** 把任意来源的 mode 值规范为合法 ApiMode（无效值回退 openai） */
+function normalizeApiMode(value: unknown): ApiMode {
+  return API_MODES.includes(value as ApiMode) ? (value as ApiMode) : 'openai';
+}
+
+/** 规范 thinking 三态；未设置或非法值一律视为「不发送」（undefined） */
+function normalizeThinking(value: unknown): ThinkingMode | undefined {
+  return THINKING_MODES.includes(value as ThinkingMode) ? (value as ThinkingMode) : undefined;
 }

@@ -1,4 +1,4 @@
-import { ApiMode, ProviderConfig } from './constants';
+import { ApiMode, ProviderConfig, ThinkingMode, DEFAULT_MAX_TOKENS } from './constants';
 
 /** API 请求失败时抛出的错误 */
 export class ApiError extends Error {
@@ -18,6 +18,8 @@ export interface ProviderRuntime {
   baseUrl: string;
   apiKey: string;
   timeout?: number;
+  maxTokens?: number;
+  thinking?: ThinkingMode;
   customRequestTemplate?: string;
   headers?: Record<string, string>;
 }
@@ -29,6 +31,8 @@ export function toRuntime(provider: ProviderConfig, apiKey: string): ProviderRun
     baseUrl: provider.baseUrl,
     apiKey,
     timeout: provider.timeout,
+    maxTokens: provider.maxTokens,
+    thinking: provider.thinking,
     customRequestTemplate: provider.customRequestTemplate,
     headers: provider.headers,
   };
@@ -56,7 +60,7 @@ async function fetchWithTimeout(
 
 const SYSTEM_PROMPT = '你是一个专业的 Git commit message 生成助手，只输出 commit message 本身。';
 
-function buildChatBody(model: string, prompt: string) {
+function buildChatBody(model: string, prompt: string, extra?: Record<string, unknown>) {
   return {
     model,
     messages: [
@@ -64,12 +68,29 @@ function buildChatBody(model: string, prompt: string) {
       { role: 'user', content: prompt },
     ],
     temperature: 0.3,
+    ...(extra ?? {}),
   };
 }
 
 /** 合并自定义 headers */
 function mergeHeaders(base: Record<string, string>, custom?: Record<string, string>): Record<string, string> {
   return { ...base, ...(custom ?? {}) };
+}
+
+/**
+ * 按各协议规范生成 thinking 字段（未配置时返回空对象，即不发送任何相关字段）。
+ * - Anthropic：顶层 `thinking: { type: 'enabled' | 'disabled' }`
+ * - OpenAI 兼容 / Responses：顶层 `reasoning_effort`（DeepSeek 官方端点也支持该字段，
+ *   且关闭思考同样走 reasoning_effort: 'none'）
+ */
+function thinkingFields(runtime: ProviderRuntime): Record<string, unknown> {
+  if (!runtime.thinking) {
+    return {};
+  }
+  if (runtime.mode === 'anthropic') {
+    return { thinking: { type: runtime.thinking } };
+  }
+  return { reasoning_effort: runtime.thinking === 'enabled' ? 'high' : 'none' };
 }
 
 /** 按 mode 构建聊天补全请求 */
@@ -115,9 +136,13 @@ function buildChatRequest(
           ),
           body: JSON.stringify({
             model: modelId,
-            temperature: 0.3,
+            // Anthropic Messages 协议中 max_tokens 为必填项，缺失会被服务端拒绝
+            max_tokens: runtime.maxTokens ?? DEFAULT_MAX_TOKENS,
+            // 开启思考时 temperature 必须为 1，故不发送（交由服务端默认）
+            ...(runtime.thinking === 'enabled' ? {} : { temperature: 0.3 }),
             system: SYSTEM_PROMPT,
             messages: [{ role: 'user', content: prompt }],
+            ...thinkingFields(runtime),
           }),
         },
       };
@@ -176,6 +201,7 @@ function buildChatRequest(
               { role: 'user', content: prompt },
             ],
             temperature: 0.3,
+            ...thinkingFields(runtime),
           }),
         },
       };
@@ -194,7 +220,7 @@ function buildChatRequest(
             },
             runtime.headers
           ),
-          body: JSON.stringify(buildChatBody(modelId, prompt)),
+          body: JSON.stringify(buildChatBody(modelId, prompt, thinkingFields(runtime))),
         },
       };
     }
@@ -386,19 +412,28 @@ export async function testConnection(
   return { message: '连接成功', models: [] };
 }
 
-/** 校验 Provider 配置必填项（不含 Model ID） */
-export function validateProvider(provider: ProviderDraftLike): string | undefined {
+/**
+ * 校验 Provider 配置必填项（不含 Model ID）。
+ * @param apiKeySatisfied 本次未填 Key 时，是否已有可用 Key（已存储，或用户显式清除）
+ */
+export function validateProvider(
+  provider: ProviderDraftLike,
+  apiKeySatisfied = false
+): string | undefined {
   if (!provider.id?.trim()) {
     return 'Provider ID 不能为空';
   }
   if (!provider.baseUrl?.trim()) {
     return 'API URL 不能为空';
   }
-  if (provider.mode === 'custom' && !provider.customRequestTemplate) {
-    return 'custom 模式需要填写请求体模板（或用默认模板）';
-  }
-  if (provider.mode !== 'ollama' && provider.mode !== 'custom' && !provider.apiKey) {
-    return 'API Key 不能为空（Ollama 本地模式不需要）';
+  // custom 模式的请求体模板可选（buildChatRequest 内有默认模板兜底）
+  if (
+    provider.mode !== 'ollama' &&
+    provider.mode !== 'custom' &&
+    !provider.apiKey &&
+    !apiKeySatisfied
+  ) {
+    return 'API Key 不能为空（Ollama / 自定义模式不需要）';
   }
   return undefined;
 }

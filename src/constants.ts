@@ -26,6 +26,15 @@ export type ApiMode = 'openai' | 'openai-responses' | 'ollama' | 'anthropic' | '
 
 export const API_MODES: ApiMode[] = ['openai', 'openai-responses', 'ollama', 'anthropic', 'custom'];
 
+/**
+ * 思考模式。undefined 表示**不发送**相关字段，交由服务端默认行为决定。
+ * 这是刻意的三态设计：部分模型（如 DeepSeek 系列）默认开启思考，
+ * 只有显式发送 disabled 才能关闭；而只支持默认关闭的服务端收到 disabled 可能报错。
+ */
+export type ThinkingMode = 'enabled' | 'disabled';
+
+export const THINKING_MODES: ThinkingMode[] = ['enabled', 'disabled'];
+
 export const API_MODE_LABELS: Record<ApiMode, string> = {
   openai: 'OpenAI 兼容（/chat/completions）',
   'openai-responses': 'OpenAI Responses（/responses）',
@@ -60,9 +69,21 @@ export interface ProviderConfig {
   mode: ApiMode;
   baseUrl: string;
   timeout?: number;
+  /** 最大输出 tokens；anthropic 模式该字段必填，未设置时用 DEFAULT_MAX_TOKENS */
+  maxTokens?: number;
+  /** 是否启用思考；不设置则不发送相关字段（见 ThinkingMode） */
+  thinking?: ThinkingMode;
   customRequestTemplate?: string;
   headers?: Record<string, string>;
 }
+
+/**
+ * 默认最大输出 tokens。
+ * Anthropic Messages 协议中 max_tokens 为必填项，缺失会被服务端拒绝
+ * （例如 LiteLLM 报 `anthropic_messages() missing 1 required positional argument: 'max_tokens'`）。
+ * 取值需兼顾：过低会截断推理模型的思考过程，过高会被部分模型拒绝。
+ */
+export const DEFAULT_MAX_TOKENS = 4096;
 
 /** Model：绑定到某个 Provider 的模型。 */
 export interface ModelConfig {

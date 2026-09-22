@@ -80,7 +80,12 @@ export class SettingsPanel {
 
       case 'saveProvider': {
         const { provider, apiKey, apiKeyCleared } = msg;
-        const missing = validateProvider({ ...provider, apiKey });
+        // 编辑已有 Provider 时：
+        //  - 输入框留空（未改 Key）→ 沿用已存储的 Key
+        //  - 点了「清除已存 Key」→ 允许保存空 Key
+        const apiKeySatisfied =
+          !apiKey && (apiKeyCleared || !!(await this.settingsService.getProviderApiKey(provider.id)));
+        const missing = validateProvider({ ...provider, apiKey }, apiKeySatisfied);
         if (missing) {
           this.post({ type: 'providerSaveResult', ok: false, message: missing });
           return;

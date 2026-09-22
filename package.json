@@ -2,9 +2,14 @@
   "name": "commit-helper",
   "displayName": "Commit Helper",
   "description": "根据待提交的变更自动生成 Conventional Commits 规范的提交信息，支持 OpenAI 兼容 / OpenAI Responses / Ollama / Anthropic / 自定义模式与提示词自定义",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "commit-helper",
   "license": "MIT",
+  "icon": "assets/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anwesc/CommitHelper.git"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },

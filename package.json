@@ -2,7 +2,7 @@
   "name": "commit-scribe",
   "displayName": "Commit Scribe",
   "description": "根据待提交的变更自动生成 Conventional Commits 规范的提交信息，支持 OpenAI 兼容 / OpenAI Responses / Ollama / Anthropic / 自定义模式与提示词自定义",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "anwesc",
   "license": "MIT",
   "icon": "assets/icon.png",
@@ -30,7 +30,14 @@
         "command": "commitHelper.generate",
         "title": "AI 生成 Commit Message",
         "category": "Commit Scribe",
-        "icon": "$(wand)"
+        "icon": "$(wand)",
+        "enablement": "!commitHelper.generating"
+      },
+      {
+        "command": "commitHelper.generateBusy",
+        "title": "生成中…",
+        "category": "Commit Scribe",
+        "icon": "$(sync~spin)"
       },
       {
         "command": "commitHelper.openSettings",
@@ -42,6 +49,14 @@
     "menus": {
       "commandPalette": [
         {
+          "command": "commitHelper.generate",
+          "when": "!commitHelper.generating"
+        },
+        {
+          "command": "commitHelper.generateBusy",
+          "when": "false"
+        },
+        {
           "command": "commitHelper.openSettings",
           "when": "true"
         }
@@ -50,7 +65,12 @@
         {
           "command": "commitHelper.generate",
           "group": "navigation",
-          "when": "scmProvider == git && gitOpenRepositoryCount != 0"
+          "when": "scmProvider == git && gitOpenRepositoryCount != 0 && !commitHelper.generating"
+        },
+        {
+          "command": "commitHelper.generateBusy",
+          "group": "navigation",
+          "when": "scmProvider == git && gitOpenRepositoryCount != 0 && commitHelper.generating"
         }
       ],
       "scm/repository": [
@@ -58,7 +78,12 @@
           "command": "commitHelper.generate",
           "title": "$(wand) AI 生成 Commit Message",
           "group": "2_main@9",
-          "when": "scmProvider == git"
+          "when": "scmProvider == git && !commitHelper.generating"
+        },
+        {
+          "command": "commitHelper.generateBusy",
+          "group": "2_main@9",
+          "when": "scmProvider == git && commitHelper.generating"
         }
       ]
     },
@@ -80,7 +105,10 @@
                 "description": "API 模式"
               },
               "baseUrl": { "type": "string", "description": "API 地址" },
-              "timeout": { "type": "number", "description": "超时（秒）" },
+              "timeout": {
+                "type": "number",
+                "description": "请求超时（秒，作为下限）。实际超时按提示词长度自适应上浮（最长 600 秒），避免大 diff 必然超时"
+              },
               "maxTokens": { "type": "number", "description": "最大输出 tokens（anthropic 模式必填，默认 4096）" },
               "thinking": {
                 "type": "string",

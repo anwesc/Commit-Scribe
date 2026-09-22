@@ -2,6 +2,7 @@
 src/**
 tsconfig.json
 .gitignore
+.gitattributes
 **/*.map
 **/*.ts
 node_modules/**

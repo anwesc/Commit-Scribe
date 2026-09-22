@@ -10,7 +10,22 @@ export const SECRET_API_KEY_PREFIX = 'commitHelper.apiKey.';
 export const COMMANDS = {
   generate: 'commitHelper.generate',
   openSettings: 'commitHelper.openSettings',
+  /** 生成期间的占位按钮（SCM 视图标题栏，点击只提示「生成中」） */
+  generateBusy: 'commitHelper.generateBusy',
 } as const;
+
+/**
+ * 「正在生成」上下文键。
+ * package.json 的 when 子句用它把 SCM 视图的魔法笔按钮替换成旋转图标，
+ * 从 UI 层面杜绝生成期间的重复点击。
+ */
+export const CONTEXT_GENERATING = 'commitHelper.generating';
+
+/**
+ * 用户主动取消生成时的错误文案。
+ * extension.ts 依赖该值识别「取消」并静默处理，避免当作失败弹错。
+ */
+export const CANCEL_MESSAGE = '已取消';
 
 /** 配置键（与 package.json contributes.configuration 保持一致） */
 export const KEYS = {
@@ -68,6 +83,7 @@ export interface ProviderConfig {
   id: string;
   mode: ApiMode;
   baseUrl: string;
+  /** 请求超时（秒）。作为**下限**，实际超时随提示词长度自适应上浮，见 resolveTimeoutSeconds */
   timeout?: number;
   /** 最大输出 tokens；anthropic 模式该字段必填，未设置时用 DEFAULT_MAX_TOKENS */
   maxTokens?: number;
@@ -84,6 +100,35 @@ export interface ProviderConfig {
  * 取值需兼顾：过低会截断推理模型的思考过程，过高会被部分模型拒绝。
  */
 export const DEFAULT_MAX_TOKENS = 4096;
+
+/** 默认请求超时（秒）：Provider 未设置 timeout 时使用 */
+export const DEFAULT_TIMEOUT_SECONDS = 30;
+
+/** 自适应超时的基准粒度：提示词每满多少字符追加 1 秒 */
+export const PROMPT_CHARS_PER_TIMEOUT_SECOND = 2000;
+
+/**
+ * 自适应超时上限（秒）。
+ * 超大 diff 的推理请求可能耗时数分钟，但必须有硬上限兜底；
+ * 另外用户显式配置了更大的值时以用户值为准，不做截断。
+ */
+export const MAX_TIMEOUT_SECONDS = 600;
+
+/**
+ * 按提示词长度计算实际请求超时（秒）。
+ *
+ * 固定超时对本地小 diff 够用，但 diff 拉满（如 maxDiffChars=384000）时，
+ * 推理模型需要数分钟才能返回，30 秒必定超时。因此以配置值为下限，
+ * 按提示词长度上浮（384k 字符约 +192 秒），并封顶 MAX_TIMEOUT_SECONDS。
+ *
+ * 请求本身可随时取消（见 apiClient 的 AbortSignal 支持），故上浮风险可控。
+ */
+export function resolveTimeoutSeconds(configured: number | undefined, promptChars: number): number {
+  const base = configured && configured > 0 ? configured : DEFAULT_TIMEOUT_SECONDS;
+  // 用 floor：不足一个粒度的提示词严格使用配置值，不做无意义的 +1 秒
+  const extra = Math.floor(Math.max(0, promptChars) / PROMPT_CHARS_PER_TIMEOUT_SECOND);
+  return Math.min(base + extra, Math.max(MAX_TIMEOUT_SECONDS, base));
+}
 
 /** Model：绑定到某个 Provider 的模型。 */
 export interface ModelConfig {

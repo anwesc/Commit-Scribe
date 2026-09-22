@@ -1,4 +1,12 @@
-import { ApiMode, ProviderConfig, ThinkingMode, DEFAULT_MAX_TOKENS } from './constants';
+import {
+  ApiMode,
+  ProviderConfig,
+  ThinkingMode,
+  DEFAULT_MAX_TOKENS,
+  DEFAULT_TIMEOUT_SECONDS,
+  resolveTimeoutSeconds,
+  CANCEL_MESSAGE,
+} from './constants';
 
 /** API 请求失败时抛出的错误 */
 export class ApiError extends Error {
@@ -38,23 +46,49 @@ export function toRuntime(provider: ProviderConfig, apiKey: string): ProviderRun
   };
 }
 
-/** 带超时的 fetch */
+/** 请求超时配置 */
+interface TimeoutSetting {
+  ms: number;
+  /** 是否已按提示词长度自适应放宽（仅影响错误文案） */
+  adaptive?: boolean;
+}
+
+/**
+ * 带超时的 fetch。
+ * @param signal 外部取消信号（用户点「取消」），与超时同时生效；
+ *   两者都表现为 AbortError，因此靠 signal.aborted 区分，取消优先。
+ */
 async function fetchWithTimeout(
   url: string,
   init: RequestInit,
-  timeoutMs: number
+  timeout: TimeoutSetting,
+  signal?: AbortSignal
 ): Promise<Response> {
+  if (signal?.aborted) {
+    throw new ApiError(CANCEL_MESSAGE);
+  }
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const timer = setTimeout(() => controller.abort(), timeout.ms);
+  const onAbort = (): void => controller.abort();
+  signal?.addEventListener('abort', onAbort, { once: true });
   try {
     return await fetch(url, { ...init, signal: controller.signal });
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
-      throw new ApiError(`请求超时（${timeoutMs / 1000}s）`);
+      if (signal?.aborted) {
+        throw new ApiError(CANCEL_MESSAGE);
+      }
+      const seconds = timeout.ms / 1000;
+      throw new ApiError(
+        timeout.adaptive
+          ? `请求超时（已等待 ${seconds} 秒）：已按提示词长度放宽超时，仍不够可调大 Provider 高级选项里的「超时」值，或改用更快的模型`
+          : `请求超时（${seconds}s）`
+      );
     }
     throw err;
   } finally {
     clearTimeout(timer);
+    signal?.removeEventListener('abort', onAbort);
   }
 }
 
@@ -313,11 +347,23 @@ async function toApiError(res: Response): Promise<ApiError> {
   return new ApiError(`HTTP ${res.status}：${detail}`, res.status, text);
 }
 
+/** Provider 配置的固定超时（毫秒）：仅用于模型列表等小请求 */
+function fixedTimeoutMs(runtime: ProviderRuntime): number {
+  const seconds = runtime.timeout && runtime.timeout > 0 ? runtime.timeout : DEFAULT_TIMEOUT_SECONDS;
+  return seconds * 1000;
+}
+
 /** 发起请求并解析 JSON */
-async function requestJson(runtime: ProviderRuntime, url: string, init: RequestInit): Promise<any> {
+async function requestJson(
+  runtime: ProviderRuntime,
+  url: string,
+  init: RequestInit,
+  signal?: AbortSignal,
+  timeout?: TimeoutSetting
+): Promise<any> {
   let res: Response;
   try {
-    res = await fetchWithTimeout(url, init, (runtime.timeout || 30) * 1000);
+    res = await fetchWithTimeout(url, init, timeout ?? { ms: fixedTimeoutMs(runtime) }, signal);
   } catch (err) {
     if (err instanceof ApiError) {
       throw err;
@@ -332,15 +378,24 @@ async function requestJson(runtime: ProviderRuntime, url: string, init: RequestI
 
 /**
  * 调用模型生成 commit message。
+ * @param signal 取消信号；被取消时抛出 message 为 {@link CANCEL_MESSAGE} 的 ApiError
  * @returns 模型输出的文本（已去除首尾空白）
  */
 export async function generateMessage(
   runtime: ProviderRuntime,
   modelId: string,
-  prompt: string
+  prompt: string,
+  signal?: AbortSignal
 ): Promise<string> {
   const { url, init } = buildChatRequest(runtime, modelId, prompt);
-  const data = await requestJson(runtime, url, init);
+  // 超时随 prompt 长度自适应上浮，避免大 diff 必然超时
+  const configuredSeconds =
+    runtime.timeout && runtime.timeout > 0 ? runtime.timeout : DEFAULT_TIMEOUT_SECONDS;
+  const seconds = resolveTimeoutSeconds(runtime.timeout, prompt.length);
+  const data = await requestJson(runtime, url, init, signal, {
+    ms: seconds * 1000,
+    adaptive: seconds > configuredSeconds,
+  });
   const content = extractContent(data).trim();
   if (!content) {
     throw new ApiError('模型返回了空内容');

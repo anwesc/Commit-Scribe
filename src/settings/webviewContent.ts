@@ -523,7 +523,7 @@ export function getWebviewContent(): string {
     tr.setAttribute('data-advanced-row', p.id);
     tr.innerHTML =
       '<td colspan="6"><div class="advanced-fields">' +
-        '<div class="af-field" style="max-width:150px;"><label>超时（秒）</label><input type="number" class="provider-input" data-field="timeout" min="5" value="' + (p.timeout || 30) + '"></div>' +
+        '<div class="af-field" style="max-width:150px;"><label>超时（秒，下限）</label><input type="number" class="provider-input" data-field="timeout" min="5" value="' + (p.timeout || 30) + '" title="实际超时按提示词长度自适应上浮，最长 600 秒"></div>' +
         '<div class="af-field" style="max-width:170px;"><label>最大输出 tokens</label><input type="number" class="provider-input" data-field="maxTokens" min="1" value="' + (p.maxTokens || '') + '" placeholder="' + DEFAULT_MAX_TOKENS + '"></div>' +
         '<div class="af-field"><label>自定义 Headers（JSON）</label><input type="text" class="provider-input" data-field="headers" value="' + (p.headers ? esc(JSON.stringify(p.headers)) : '') + '" placeholder=\\'{"X-Api-Key": "xxx"}\\'></div>' +
         '<div class="af-field" style="flex:2;"><label>Custom 请求体模板</label><input type="text" class="provider-input" data-field="customRequestTemplate" value="' + esc(p.customRequestTemplate || '') + '" placeholder=\\'{"model": "{{model}}", "messages": {{messages}}}\\'></div>' +

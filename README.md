@@ -28,65 +28,51 @@
 
 ## 配置
 
-| 配置 | 说明 |
-|---|---|
-| `commitHelper.providers` | API 服务提供商列表 |
-| `commitHelper.models` | 模型列表（绑定 Provider） |
-| `commitHelper.commitModel` | 生成 commit 使用的模型（`providerId::modelId`） |
-| `commitHelper.prompt.template` | 提示词模板 |
-| `commitHelper.prompt.language` | 生成语言（zh / en） |
-| `commitHelper.maxDiffChars` | diff 内容截断上限（字符） |
+| 配置                             | 说明                                              |
+| -------------------------------- | ------------------------------------------------- |
+| `commitHelper.providers`       | API 服务提供商列表                                |
+| `commitHelper.models`          | 模型列表（绑定 Provider）                         |
+| `commitHelper.commitModel`     | 生成 commit 使用的模型（`providerId::modelId`） |
+| `commitHelper.prompt.template` | 提示词模板                                        |
+| `commitHelper.prompt.language` | 生成语言（zh / en）                               |
+| `commitHelper.maxDiffChars`    | diff 内容截断上限（字符）                         |
 
 ## 支持的模式
 
-| 模式 | 端点 | 说明 |
-|---|---|---|
-| `openai` | `/chat/completions` | OpenAI 兼容（DeepSeek、通义、Kimi 等） |
-| `openai-responses` | `/responses` | OpenAI Responses API |
-| `ollama` | `/api/chat` | 本地 Ollama |
-| `anthropic` | `/v1/messages` | Anthropic Claude |
-| `custom` | 自定义 URL | 自行提供请求 URL 与请求体模板 |
+| 模式                 | 端点                  | 说明                                   |
+| -------------------- | --------------------- | -------------------------------------- |
+| `openai`           | `/chat/completions` | OpenAI 兼容（DeepSeek、通义、Kimi 等） |
+| `openai-responses` | `/responses`        | OpenAI Responses API                   |
+| `ollama`           | `/api/chat`         | 本地 Ollama                            |
+| `anthropic`        | `/v1/messages`      | Anthropic Claude                       |
+| `custom`           | 自定义 URL            | 自行提供请求 URL 与请求体模板          |
 
 ## Provider 高级选项
 
 在 Provider 表格点击 ⚙ 展开高级选项：
 
-| 选项 | 默认值 | 说明 |
-|---|---|---|
-| 超时（秒） | `30` | 单次请求超时 |
-| 最大输出 tokens | `4096` | Anthropic 协议该字段必填；推理模型建议调大，避免思维链占满预算导致内容被截断 |
-| 自定义 Headers（JSON） | 无 | 附加请求头，例如 `{"X-Api-Key": "xxx"}` |
-| Custom 请求体模板 | 内置模板 | 仅 `custom` 模式使用，支持 `{{model}}`、`{{messages}}`、`{{prompt}}` |
+| 选项                   | 默认值   | 说明                                                                         |
+| ---------------------- | -------- | ---------------------------------------------------------------------------- |
+| 超时（秒）             | `30`   | 单次请求超时                                                                 |
+| 最大输出 tokens        | `4096` | Anthropic 协议该字段必填；推理模型建议调大，避免思维链占满预算导致内容被截断 |
+| 自定义 Headers（JSON） | 无       | 附加请求头，例如 `{"X-Api-Key": "xxx"}`                                     |
+| Custom 请求体模板      | 内置模板 | 仅 `custom` 模式使用，支持 `{{model}}`、`{{messages}}`、`{{prompt}}`  |
 
 ## 思考模式
 
 部分模型（如 DeepSeek 系列）**默认开启思考**，其思维链会占用输出预算。本扩展按 Provider 提供三档设置：
 
-| 设置 | 行为 |
-|---|---|
-| 不指定（默认） | 不发送任何思考相关字段，由服务端默认行为决定 |
-| 启用 | `anthropic` → `thinking: { type: "enabled" }`；`openai` / `openai-responses` → `reasoning_effort: "high"` |
-| 关闭 | `anthropic` → `thinking: { type: "disabled" }`；`openai` / `openai-responses` → `reasoning_effort: "none"` |
+| 设置           | 行为                                                                                                                   |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| 不指定（默认） | 不发送任何思考相关字段，由服务端默认行为决定                                                                           |
+| 启用           | `anthropic` → `thinking: { type: "enabled" }`；`openai` / `openai-responses` → `reasoning_effort: "high"`  |
+| 关闭           | `anthropic` → `thinking: { type: "disabled" }`；`openai` / `openai-responses` → `reasoning_effort: "none"` |
 
 说明：
 
 - `ollama` 与 `custom` 模式不做注入（前者有自有参数体系，后者请求体完全由模板控制）
 - Anthropic 协议要求开启思考时 `temperature` 必须为 `1`，因此**启用思考时本扩展不发送 `temperature`**，交由服务端默认值处理
 - 「不指定」这一档是刻意保留的：默认开启思考的模型只能靠显式发送关闭参数来关闭，而默认关闭的服务端收到关闭参数反而可能报错
-
-## 开发
-
-```bash
-npm install
-npm run compile   # 编译
-F5                # 启动扩展开发宿主调试
-```
-
-打包：
-
-```bash
-npx vsce package
-```
 
 ## 安全说明
 

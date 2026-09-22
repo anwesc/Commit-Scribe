@@ -1,9 +1,9 @@
 {
-  "name": "commit-helper",
+  "name": "ai-commit-helper",
   "displayName": "Commit Helper",
   "description": "根据待提交的变更自动生成 Conventional Commits 规范的提交信息，支持 OpenAI 兼容 / OpenAI Responses / Ollama / Anthropic / 自定义模式与提示词自定义",
   "version": "0.2.0",
-  "publisher": "commit-helper",
+  "publisher": "anwesc",
   "license": "MIT",
   "icon": "assets/icon.png",
   "repository": {
